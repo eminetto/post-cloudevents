@@ -1,4 +1,4 @@
-module github.com/eminetto/post-cloudevents-client
+module github.com/eminetto/post-cloudevents-server
 
 go 1.23.3
 
