@@ -7,21 +7,36 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/IBM/sarama"
+	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/httplog"
 	"github.com/google/uuid"
 )
 
-const auditService = "http://localhost:8080/"
+const (
+	auditService = "127.0.0.1:9092"
+	auditTopic   = "audit"
+)
 
 func main() {
 	logger := httplog.NewLogger("user", httplog.Options{
 		JSON: true,
 	})
 	ctx := context.Background()
-	ceClient, err := cloudevents.NewClientHTTP()
+
+	saramaConfig := sarama.NewConfig()
+	saramaConfig.Version = sarama.V2_0_0_0
+
+	sender, err := kafka_sarama.NewSender([]string{auditService}, saramaConfig, auditTopic)
+	if err != nil {
+		log.Fatalf("failed to create protocol: %s", err.Error())
+	}
+
+	defer sender.Close(context.Background())
+
+	ceClient, err := cloudevents.NewClient(sender, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
 	if err != nil {
 		log.Fatalf("failed to create client, %v", err)
 	}
@@ -65,16 +80,17 @@ func storeUser(ctx context.Context, ceClient cloudevents.Client) http.HandlerFun
 
 		// Create an Event.
 		event := cloudevents.NewEvent()
+		event.SetID(uuid.New().String())
 		event.SetSource("github.com/eminetto/post-cloudevents")
 		event.SetType("user.storeUser")
 		event.SetData(cloudevents.ApplicationJSON, map[string]string{"id": ur.ID.String()})
 
-		// Set a target.
-		ctx := cloudevents.ContextWithTarget(context.Background(), auditService)
-
 		// Send that Event.
-		var result protocol.Result
-		if result = ceClient.Send(ctx, event); cloudevents.IsUndelivered(result) {
+		if result := ceClient.Send(
+			// Set the producer message key
+			kafka_sarama.WithMessageKey(context.Background(), sarama.StringEncoder(event.ID())),
+			event,
+		); cloudevents.IsUndelivered(result) {
 			oplog.Error().Msgf("failed to send, %v", result)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
