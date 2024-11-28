@@ -1,4 +1,4 @@
-module github.com/eminetto/post-cloudevents-client
+module github.com/eminetto/post-cloudevents-user
 
 go 1.23.3
 
@@ -6,10 +6,10 @@ require (
 	github.com/cloudevents/sdk-go/v2 v2.15.2
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-chi/httplog v0.3.2
+	github.com/google/uuid v1.1.1
 )
 
 require (
-	github.com/google/uuid v1.1.1 // indirect
 	github.com/json-iterator/go v1.1.10 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
